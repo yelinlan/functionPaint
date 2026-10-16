@@ -1,0 +1,824 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>冰雹猜想 (Collatz 3n+1) 研究指南 · 多种思路</title>
+<style>
+  :root{
+    --bg:#0d1117; --panel:#161b22; --panel2:#1c2330; --line:#30363d;
+    --fg:#e6edf3; --dim:#9aa7b3; --acc:#58a6ff; --acc2:#f7b955; --good:#3fb950; --bad:#f85149;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--fg);
+    font-family:"Segoe UI","Microsoft YaHei",system-ui,sans-serif;line-height:1.75}
+  header{padding:34px 24px 22px;text-align:center;
+    background:linear-gradient(180deg,#111a2b 0%,#0d1117 100%);border-bottom:1px solid var(--line)}
+  header h1{margin:0;font-size:30px;letter-spacing:1px}
+  header h1 span{color:var(--acc)}
+  header p{margin:8px 0 0;color:var(--dim);font-size:15px}
+  nav{position:sticky;top:0;z-index:20;display:flex;flex-wrap:wrap;gap:6px;justify-content:center;
+    padding:10px;background:rgba(13,17,23,.95);backdrop-filter:blur(6px);border-bottom:1px solid var(--line)}
+  nav button{background:var(--panel);color:var(--dim);border:1px solid var(--line);
+    padding:7px 14px;border-radius:20px;cursor:pointer;font-size:14px;transition:.15s}
+  nav button:hover{color:var(--fg);border-color:var(--acc)}
+  nav button.on{background:var(--acc);color:#04121f;border-color:var(--acc);font-weight:600}
+  main{max-width:1080px;margin:0 auto;padding:26px 20px 80px}
+  section{display:none;animation:fade .25s ease}
+  section.on{display:block}
+  @keyframes fade{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+  h2{font-size:24px;border-left:5px solid var(--acc);padding-left:12px;margin-top:6px}
+  h3{font-size:18px;color:var(--acc2);margin-top:30px}
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:18px 20px;margin:16px 0}
+  .grid{display:grid;gap:16px}
+  @media(min-width:760px){.g2{grid-template-columns:1fr 1fr}.g3{grid-template-columns:1fr 1fr 1fr}}
+  .muted{color:var(--dim)}
+  code,.mono{font-family:Consolas,"Courier New",monospace;background:#0b0f16;
+    border:1px solid var(--line);padding:1px 6px;border-radius:5px;color:#79c0ff}
+  .formula{font-family:"Cambria Math",Georgia,serif;font-size:20px;text-align:center;
+    background:#0b0f16;border:1px dashed var(--line);border-radius:10px;padding:16px;margin:14px 0;color:#ffd479}
+  .tag{display:inline-block;background:#12304d;color:#8ac4ff;border:1px solid #1f4b76;
+    border-radius:6px;padding:1px 9px;font-size:13px;margin:2px 4px 2px 0}
+  .num{color:var(--acc2);font-weight:600}
+  canvas{width:100%;background:#0b0f16;border:1px solid var(--line);border-radius:10px;display:block}
+  .ctrl{display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin:12px 0}
+  input[type=number],input[type=text]{background:#0b0f16;color:var(--fg);border:1px solid var(--line);
+    border-radius:8px;padding:8px 10px;font-size:15px;width:150px;font-family:Consolas,monospace}
+  button.act{background:var(--good);color:#04160a;border:none;padding:8px 16px;border-radius:8px;
+    cursor:pointer;font-size:14px;font-weight:600}
+  button.act.alt{background:var(--acc);color:#04121f}
+  button.act.warn{background:var(--acc2);color:#221600}
+  button.act:disabled{opacity:.45;cursor:not-allowed}
+  table{width:100%;border-collapse:collapse;font-size:14.5px;margin-top:8px}
+  th,td{border:1px solid var(--line);padding:8px 10px;text-align:left}
+  th{background:var(--panel2);color:var(--acc2)}
+  ul li,ol li{margin:6px 0}
+  .kbd{background:#21262d;border:1px solid var(--line);border-radius:5px;padding:0 6px;font-size:13px}
+  .ok{color:var(--good)} .no{color:var(--bad)}
+  .steps{counter-reset:s;list-style:none;padding:0}
+  .steps li{counter-increment:s;position:relative;padding:8px 0 8px 44px;border-bottom:1px dashed var(--line)}
+  .steps li::before{content:counter(s);position:absolute;left:0;top:9px;width:28px;height:28px;
+    border-radius:50%;background:var(--acc);color:#04121f;font-weight:700;display:flex;
+    align-items:center;justify-content:center;font-size:14px}
+  .legend{font-size:13px;color:var(--dim);margin-top:6px}
+  .bub{background:#0f2233;border-left:4px solid var(--acc);padding:10px 14px;border-radius:0 8px 8px 0;margin:10px 0}
+  .warnbox{background:#2b1a12;border-left:4px solid var(--bad);padding:10px 14px;border-radius:0 8px 8px 0;margin:10px 0}
+  a{color:var(--acc)}
+  footer{text-align:center;color:var(--dim);font-size:13px;padding:24px;border-top:1px solid var(--line)}
+  .parity{font-family:Consolas,monospace;font-size:15px;letter-spacing:3px;word-break:break-all}
+  .chips{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
+  .chips button{background:#12202e;border:1px solid var(--line);color:var(--dim);
+    padding:4px 10px;border-radius:6px;cursor:pointer;font-family:Consolas,monospace;font-size:13px}
+  .chips button:hover{color:var(--fg);border-color:var(--acc)}
+</style>
+</head>
+<body>
+
+<header>
+  <h1>冰雹猜想 · <span>Collatz 3n+1</span> 研究指南</h1>
+  <p>「像冰雹一样忽上忽下的数列，真的都落到 1 吗？」—— 6 种研究思路 + 交互式实验 + 行动路线</p>
+</header>
+
+<nav id="nav">
+  <button data-t="intro" class="on">0 · 引言</button>
+  <button data-t="s1">思路1 · 数值实验</button>
+  <button data-t="s2">思路2 · 逆向树</button>
+  <button data-t="s3">思路3 · 二进制奇偶</button>
+  <button data-t="s4">思路4 · 随机模型</button>
+  <button data-t="s5">思路5 · 统计与反例搜索</button>
+  <button data-t="s6">思路6 · 变体推广</button>
+  <button data-t="plan">研究路线</button>
+  <button data-t="ref">参考文献</button>
+</nav>
+
+<main>
+
+<!-- ================= 0 引言 ================= -->
+<section id="intro" class="on">
+  <h2>0 · 冰雹猜想是什么</h2>
+  <div class="card">
+    <p>对任意正整数 <span class="num">n</span>，反复施加规则：</p>
+    <div class="formula">
+      T(n) = n/2 &nbsp;(n 为偶数)&nbsp;&nbsp;&nbsp;|&nbsp;&nbsp;&nbsp; T(n) = 3n + 1 &nbsp;(n 为奇数)
+    </div>
+    <p><b>猜想（Collatz, 1937；亦称 3n+1、Syracuse 问题、Hasse 算法）：</b>无论从哪个正整数出发，最终都会到达 1（随后进入 1 → 4 → 2 → 1 的循环）。</p>
+    <p class="muted">因轨迹反复冲高又暴跌、犹如冰雹起落，故在中文里被称为「冰雹猜想」（hailstone sequence）。Ulam 曾把它形象地说成「数学中的一只猛兽」，Erdős 评价：<i>「数学也许还没有准备好解决这样的问题。」</i></p>
+    <div class="grid g3" style="margin-top:14px">
+      <div class="bub"><b>已验证范围</b><br>所有 <span class="num">n ≤ 2<sup>68</sup></span>（≈2.95×10<sup>20</sup>，Elia Komlath, 2024）均成立。</div>
+      <div class="bub"><b>已知的危险</b><br>只证明了：若存在发散轨道/非平凡循环，其起始值必须极其巨大（模约束极强）。</div>
+      <div class="bub"><b>悬赏</b><br>该问题的经典悬赏 500 美元（Erdős 遗留至今），至今无人认领。</div>
+    </div>
+  </div>
+
+  <h3>快速体验：输入任意 n，看它的冰雹轨迹</h3>
+  <div class="card">
+    <div class="ctrl">
+      <input type="number" id="q0n" value="27" min="1" step="1">
+      <button class="act" onclick="quickRun()">生成轨迹</button>
+      <span class="muted">试试 27、704511、63728127 ……</span>
+    </div>
+    <div class="chips">
+      <button onclick="preset(27)">27（111步）</button>
+      <button onclick="preset(31)">31</button>
+      <button onclick="preset(703)">703</button>
+      <button onclick="preset(6171)">6171</button>
+      <button onclick="preset(704511)">704511</button>
+      <button onclick="preset(9663)">9663</button>
+    </div>
+    <div class="legend" id="q0info"></div>
+    <canvas id="q0" height="260"></canvas>
+  </div>
+
+  <div class="card">
+    <h3 style="margin-top:0">为什么它重要（研究价值）</h3>
+    <ul>
+      <li><b>极致简单 vs 极致困难：</b>小学生都能复述规则，但用尽现有解析工具也无从下手——是检验新方法的「试金石」。</li>
+      <li><b>与正规数、素数分布、动力系统、计算复杂性（P vs NP 相关的不可判定性思想）有深刻联系。</b></li>
+      <li><b>入门门槛低、验证成本低：</b>一台电脑即可做前沿级的数值实验，适合初学者积累研究手感。</li>
+    </ul>
+  </div>
+</section>
+
+<!-- ================= 思路1 ================= -->
+<section id="s1">
+  <h2>思路一 · 数值实验与轨迹模拟（最直接的入手点）</h2>
+  <div class="card">
+    <p class="muted">核心思想：先「玩」数字。计算停止时间（stopping time，到目前为止的最大值）、总步数（total stopping time，到 1 的步数）、轨迹形状，寻找反常样本与规律。</p>
+    <div class="ctrl">
+      <label>起始 n：<input type="number" id="s1n" value="27" min="1"></label>
+      <button class="act alt" id="s1play">▶ 播放</button>
+      <button class="act warn" id="s1step">步进 +1</button>
+      <button class="act" onclick="s1reset()">重置</button>
+      <span class="muted" id="s1stepInfo">第 0 步</span>
+    </div>
+    <canvas id="s1c" height="300"></canvas>
+    <div class="legend">纵轴为当前值（对数刻度），绿色点=偶数步（÷2），橙色点=奇数步（×3+1）。</div>
+  </div>
+
+  <div class="card">
+    <h3 style="margin-top:0">批量扫描：n = 1 … N 的总停止时间散点</h3>
+    <div class="ctrl">
+      <label>N：<input type="number" id="s1N" value="2000" min="10" step="100"></label>
+      <button class="act" onclick="s1Batch()">扫描</button>
+      <label><input type="checkbox" id="s1log" checked> 对数纵轴（log₂ 步数）</label>
+    </div>
+    <canvas id="s1b" height="300"></canvas>
+    <div class="legend" id="s1binfo">尚未扫描。散点越往上代表该数「飞得越高、走得越久」。</div>
+  </div>
+
+  <div class="card">
+    <h3 style="margin-top:0">经典长轨迹样本</h3>
+    <table>
+      <tr><th>起始 n</th><th>总步数</th><th>最大值</th><th>备注</th></tr>
+      <tr><td>27</td><td>111</td><td>9232</td><td>最著名的「小例子」，教学常用</td></tr>
+      <tr><td>703</td><td>97</td><td>250504</td><td>步数多但峰值不高</td></tr>
+      <tr><td>6171</td><td>261</td><td>904961</td><td>已知的 5 位数中最长之一</td></tr>
+      <tr><td>704511</td><td>986</td><td>56991483520</td><td>「大峰值」典型，log 上冲 37 位</td></tr>
+      <tr><td>63728127</td><td>949</td><td>2.6×10<sup>21</sup></td><td>峰值远超起点</td></tr>
+    </table>
+    <div class="bub"><b>实验建议：</b>先写 30 行 Python/JS 验证 → 记录 (n, 峰值, 步数, 奇数比例) → 用相关性图、分位数图找结构 → 挑一个「反常」样本深挖。</div>
+  </div>
+</section>
+
+<!-- ================= 思路2 ================= -->
+<section id="s2">
+  <h2>思路二 · 逆向轨道：从 1 倒推的树</h2>
+  <div class="card">
+    <p>正向难证，就<b>反着看</b>。给定 m，可能的前驱只有两种：</p>
+    <div class="formula">m → 2m （m 由偶数除 2 得到）&nbsp;&nbsp;|&nbsp;&nbsp; m → (m−1)/3 （当 m ≡ 4 (mod 6) 时，由奇数 3n+1 得到）</div>
+    <p class="muted">从 1 出发反复前驱，得到一棵「Collatz 树」。于是猜想等价于：<b>这棵树是否覆盖所有正整数？</b>（每个整数要么在树上，要么落在一个非平凡循环/发散分支中。）</p>
+    <div class="ctrl">
+      <label>展开深度：<input type="number" id="s2d" value="7" min="1" max="14"></label>
+      <label>布局：
+        <select id="s2layout"><option value="tree">树形</option><option value="radial">放射形</option></select>
+      </label>
+      <button class="act" onclick="drawTree()">绘制逆向树</button>
+      <span class="muted" id="s2info"></span>
+    </div>
+    <canvas id="s2c" height="440"></canvas>
+    <div class="legend">实线 = ×2 分支（一定存在）；虚线 = (m−1)/3 分支（需要 m≡4 mod 6 且结果为正整数）。深挖任意一支都会迅速指数膨胀——这就是困难所在。</div>
+  </div>
+
+  <div class="card">
+    <h3 style="margin-top:0">该思路下的可研究问题</h3>
+    <ul>
+      <li><b>循环刻画：</b>任何循环都对应树上的「自我碰撞」。已证：任何非平凡循环中必有元素 < 2<sup>k</sup>（k 为奇数个数），且最大元必然是奇数。</li>
+      <li><b>反向覆盖密度：</b>统计深度 d 内的节点数 ~ 2<sup>d</sup>，但 (m−1)/3 分支期望只占约 1/6。能否证明「漏网之鱼」数量为 0？</li>
+      <li><b>碰撞结构：</b>正向不同轨道的第一次碰撞点分布——若碰撞总发生在 1，则猜想成立。</li>
+      <li><b>具体技术：</b>用模 2<sup>k</sup> 或 p-进赋值约束循环；借助格基约减 (LLL) 搜索循环候选。</li>
+    </ul>
+  </div>
+</section>
+
+<!-- ================= 思路3 ================= -->
+<section id="s3">
+  <h2>思路三 · 二进制与奇偶模式（Syracuse 问题 / 局部化方法）</h2>
+  <div class="card">
+    <p class="muted">3n+1 在二进制下有天然结构：偶数右移一位；奇数 n 的 3n+1 至少是偶数（实际上末位必为 0），立刻至少右移一位。</p>
+    <div class="ctrl">
+      <label>输入 n：<input type="number" id="s3n" value="27" min="1"></label>
+      <button class="act" onclick="showParity()">分析</button>
+      <span class="muted">观察每步的二进制变化与奇偶串</span>
+    </div>
+    <div id="s3out"></div>
+  </div>
+
+  <div class="card">
+    <h3 style="margin-top:0">奇偶串 (Parity String) 与加速</h3>
+    <p>把一段连续的运算按「奇/偶」压缩成 0/1 串，可用 <b>Syracuse 函数</b> 一次跳过所有偶数步：</p>
+    <div class="formula">S(y) = (3y + 1) / 2<sup>v₂(3y+1)</sup> &nbsp;&nbsp;（y 为奇数，v₂ 为 2 的幂次）</div>
+    <p>由此产生几类成熟技术，适合作为论文/综述切入点：</p>
+    <ul>
+      <li><b>奇偶向量 (parity vector)：</b>轨道由其奇偶序列唯一决定（determinacy of parity sequences，Shastri 等）。两个轨道若共享充分长的奇偶段就可判同。</li>
+      <li><b>局部化 (Terras, 1976; Krasikov–Lagarias, 2003)：</b>证明「几乎所有 n」的轨迹最终下降，依赖 ∑ log 项的 2-adic 控制。</li>
+      <li><b>统计/局部-整体方法：</b>考虑 mod 2<sup>k</sup> 的一致分布，用 Kummer 型同余、p-进 L 函数控制 3<sup>s</sup> mod 2<sup>t</sup> 的分布。</li>
+      <li><b>算术加速：</b>用 (3<sup>a</sup>·n + b)/2<sup>c</sup> 的模板批量跳跃，可将模拟速度提升 10~100 倍。</li>
+    </ul>
+    <div class="bub"><b>可做的小课题：</b>枚举长度 ≤ 20 的奇偶串，统计其出现频率与可达起点集合；用奇偶串重写搜索循环的方程。</div>
+  </div>
+</section>
+
+<!-- ================= 思路4 ================= -->
+<section id="s4">
+  <h2>思路四 · 概率 / 随机启发式模型</h2>
+  <div class="card">
+    <p>忽略具体数值、只看「奇偶性随机」的假设：</p>
+    <div class="formula">
+      期望对数变化 ≈ ½·log₂(1/2) + ½·log₂(3/2)... 精确到每个奇数步后必跟 ≥1 次除 2：<br>
+      E[Δ log n] ≈ ½·(log₂ ½) + ½·(log₂ 3/4) = −0.2075 < 0
+    </div>
+    <p class="muted">即：<b>平均而言每步把 n 乘以约 3/4</b>，所以轨迹「期望上」指数下降到 1——这解释了为什么几乎所有轨道都下落，但<b>期望下降 ≠ 必然下降</b>，这正是证明的鸿沟（相关性、尾部事件、无界波动都可能破坏期望论证）。</p>
+    <div class="ctrl">
+      <label>模拟条数 <input type="number" id="s4k" value="40" min="1" max="200"></label>
+      <label>步数 <input type="number" id="s4s" value="120" min="10" max="600"></label>
+      <button class="act" onclick="runRandom()">运行随机模型对比</button>
+      <label><input type="checkbox" id="s4real" checked> 同时画真实轨迹 (n=27)</label>
+    </div>
+    <canvas id="s4c" height="320"></canvas>
+    <div class="legend" id="s4info">蓝线 = 随机奇偶模型的 log₂ 轨迹（大多向下漂移，但个别向上冲）；橙线 = 真实 3n+1 轨迹。</div>
+  </div>
+
+  <div class="card">
+    <h3 style="margin-top:0">启发式能说什么、不能说什么</h3>
+    <table>
+      <tr><th>能解释</th><th>不能保证</th></tr>
+      <tr>
+        <td class="ok">为什么 n 很大时「几乎总是」回到小数值（Erdős 型论证、Terras 定理的直觉来源）</td>
+        <td class="no">不存在极少数「永远上升」的怪异起点</td>
+      </tr>
+      <tr>
+        <td class="ok">峰值/步数的统计分布（log-normal 型、停止时间近似 ∝ (log n)²）</td>
+        <td class="no">不存在非平凡循环（随机模型里也可能有循环）</td>
+      </tr>
+      <tr>
+        <td class="ok">变体方程中哪些 kx+1 会发散（期望 Δlog 的符号）</td>
+        <td class="no">从「以概率 1」升级到「对所有 n」的确定性结论</td>
+      </tr>
+    </table>
+    <div class="warnbox"><b>研究提醒：</b>把随机论证写成严格证明是常见失败点。可研究的方向：给奇偶序列建立鞅/马尔可夫链模型，并控制偏差（concentration inequality），争取把「几乎处处」推进到更大范围。</div>
+  </div>
+</section>
+
+<!-- ================= 思路5 ================= -->
+<section id="s5">
+  <h2>思路五 · 图形统计与反例搜索（计算实验方向）</h2>
+  <div class="card">
+    <h3 style="margin-top:0">峰值倍数分布 (max/起点)</h3>
+    <div class="ctrl">
+      <label>范围 N <input type="number" id="s5N" value="3000" min="100" step="100"></label>
+      <button class="act" onclick="drawHist()">生成直方图</button>
+      <label>统计量
+        <select id="s5type">
+          <option value="peak">峰值倍数 max(n)/n₀</option>
+          <option value="steps">总停止时间（步数）</option>
+          <option value="odd">奇数步占比</option>
+        </select>
+      </label>
+    </div>
+    <canvas id="s5c" height="300"></canvas>
+    <div class="legend" id="s5info"></div>
+  </div>
+
+  <div class="card">
+    <h3 style="margin-top:0">反例搜索工程实践（可直接写代码开跑）</h3>
+    <ol class="steps">
+      <li><b>位宽与溢出：</b>用 128/256 位整数或大数库；峰值可达起点的 ~10³·log 倍，必须预留余量。</li>
+      <li><b>查表 + 约定：</b>预计算 n < 10⁷ 的停止时间表，轨迹降到表内直接查表返回（jump table），速度提升 1~2 个数量级。</li>
+      <li><b>并行分片：</b>按 n mod P 分片，多核/多机各扫一段；可参考 ycruncher、Wikipedia 的分布式项目做法。</li>
+      <li><b>断言式验证：</b>对每条轨迹记录 max 与 2<sup>68</sup> 内已验证结果比对；任何「超过 k 步未落回」的候选立即上报。</li>
+      <li><b>可视化反馈：</b>把停止时间热力图、峰值随 n 的锯齿结构画出来，异常会「跳出来」。</li>
+      <li><b>可发表的增量：</b>更宽范围的验证 + 你独有的分布统计/新不变量（如 mod 3、mod 4 分类下的步数差异）。</li>
+    </ol>
+    <div class="bub"><b>数据源：</b>OEIS A006577（停止时间）、A006885（最大值）、A070165（奇数步数）、Lagarias 编的《The Ultimate Challenge》附录数据。</div>
+  </div>
+</section>
+
+<!-- ================= 思路6 ================= -->
+<section id="s6">
+  <h2>思路六 · 变体与推广（最容易出成果的方向）</h2>
+  <div class="card">
+    <p class="muted">3n+1 是一个庞大族系的特例：kx±1 类问题。改变 k 后会出现三类世界：<b>收敛到平凡循环</b>、<b>发散（存在无穷轨道）</b>、<b>悬而未决</b>。相图（phase diagram）研究是很适合新手的切入点。</p>
+    <div class="ctrl">
+      <label>规则 T(n) = <select id="v6op">
+          <option value="mul">k·n + 1</option>
+          <option value="sub">k·n − 1</option>
+        </select></label>
+      <label>k = <input type="number" id="v6k" value="3" min="1" max="30"></label>
+      <label>测试起点范围 <input type="number" id="v6N" value="500" min="10"></label>
+      <button class="act" onclick="runVariant()">分析</button>
+    </div>
+    <canvas id="v6c" height="300"></canvas>
+    <div class="legend" id="v6info">柱状：每个 k 下，起点 1..N 的「平均 log₂(最大值)」——越低表示越收敛，越高/越不稳定暗示发散或长循环。</div>
+    <div class="ctrl" style="margin-top:6px">
+      <button class="act alt" onclick="v6kScan()">扫描 k = 1…20 的相图</button>
+      <span class="muted" id="v6kinfo"></span>
+    </div>
+    <canvas id="v6b" height="260"></canvas>
+  </div>
+
+  <div class="card">
+    <h3 style="margin-top:0">可选的推广课题</h3>
+    <ul>
+      <li><b>kx+1 相图：</b>偶数 k + 1 恒为奇数 → 增长最快；k ≡ 2 mod 4 时常出现发散；可给出数值相图 + 循环枚举表。</li>
+      <li><b>高维/矩阵版本：</b>3×3 整数矩阵的 «Collatz» 乘法（Conway 的问题是不可判定的！）——可作综述/科普。</li>
+      <li><b>函数环上：多项式 Collatz（如 (x²+x+1) 系数 mod 2）。</b></li>
+      <li><b>与其它猜想的桥：</b>Collatz 猜想 ⇒ 关于正规数/素数分布的命题（Rempe 等 2020：Collatz 蕴含无限多 Collatz 猜想型素数）。</li>
+      <li><b>算法/工程向：</b>GPU 上的批量验证、压缩存储轨迹（parity + run-length）、用 SAT/SMT 搜小循环。</li>
+    </ul>
+    <div class="bub"><b>为什么这个方向推荐新手：</b>3n+1 本身久攻不克，但变体族系很多结论「半开放」，数值 + 猜想式结论的论文空间较大，且极易做可视化。</div>
+  </div>
+</section>
+
+<!-- ================= 研究路线 ================= -->
+<section id="plan">
+  <h2>给你的研究行动路线</h2>
+  <div class="card">
+    <ol class="steps">
+      <li><b>第 1 周 · 建立直觉：</b>手算 n=6、27、9 的轨迹；读 Collatz 猜想的科普综述（Wikipedia 中/英 + Lagarias 的 survey 第 1 章）。</li>
+      <li><b>第 2 周 · 写代码：</b>轨迹生成器 + 停止时间表 + 本页所有交互的源码（就是本 HTML 的 JS）。能复述随机模型为什么给出 −0.2075。</li>
+      <li><b>第 3–4 周 · 选一条思路深挖：</b>二选一——(A) 数值统计：做一张别人没画过的分布图并解释它；(B) 逆向树/循环：穷举深度 d 的所有循环候选，给出新的模约束。</li>
+      <li><b>第 5–6 周 · 读原始文献：</b>Terras(1976)、Krasikov–Lagarias(2003)、Tao(2019, "Almost all orbits attain almost bounded values")——目标是能看懂证明骨架。</li>
+      <li><b>第 7–8 周 · 输出：</b>写一篇中文综述/实验报告，或选一个变体（kx±1 相图、奇偶串统计）写成可投稿的小论文/课程报告。</li>
+      <li><b>持续 · 记录异常：</b>任何你发现的「疑似长于预期」「疑似更高峰值」样本都是好素材。</li>
+    </ol>
+  </div>
+
+  <div class="card">
+    <h3 style="margin-top:0">工具与关键词速查</h3>
+    <div>
+      <span class="tag">Python / JS</span><span class="tag">biginteger</span><span class="tag">停止时间 stopping time</span>
+      <span class="tag">Syracuse function</span><span class="tag">parity vector</span><span class="tag">Terras 定理</span>
+      <span class="tag">2-adic / p-adic</span><span class="tag">local-global</span><span class="tag">Elia Komlath 2⁶⁸ 验证</span>
+      <span class="tag">Tao 2019</span><span class="tag">OEIS A006577</span><span class="tag">Lagarias《The Ultimate Challenge》</span>
+      <span class="tag">Conway 广义不可判定</span><span class="tag">随机模型 heuristic</span>
+    </div>
+    <div class="warnbox" style="margin-top:14px"><b>心态建议：</b>不要以「证明完整猜想」为目标立项；以「一个可验证的增量」为目标——新的分布统计、更宽的验证、更紧的循环模约束、更清晰的教学可视化，都是真实贡献。</div>
+  </div>
+</section>
+
+<!-- ================= 参考 ================= -->
+<section id="ref">
+  <h2>参考文献与资源</h2>
+  <div class="card">
+    <h3 style="margin-top:0">经典文献</h3>
+    <ol>
+      <li>J. Lagarias (编.), <i>The Ultimate Challenge: The 3x+1 Problem</i>, AMS, 2010. —— 该问题的权威论文集，含历史、验证与综述。</li>
+      <li>R. Terras, <i>A stopping time theorem for the Collatz problem</i>, Acta Arith. 1976. —— 最早的「几乎处处下降」证明。</li>
+      <li>I. Krasikov & J. Lagarias, <i>Bounds for the 3x+1 problem using difference inequalities</i>, Math. Comp. 2003.</li>
+      <li>T. Tao, <i>Almost all orbits of the Collatz map attain almost bounded values</i>, 2019 (arXiv:1909.03562). —— 当前最强结果之一。</li>
+      <li>L. Elia Komlath, 2024 —— 对 n ≤ 2<sup>68</sup> 的完整验证公告。</li>
+      <li>J. L. Simons & B. de Weger, <i>Theoretical and computational bounds for m-cycles of the 3n+1 problem</i>, Acta Arith. 2005. —— 循环的强约束（已排除 ≤ 10²⁰ 量级的循环）。</li>
+      <li>K. Conrad, <i>The Collatz Conjecture</i>（讲义，常见 PDF）——适合入门的形式化表述。</li>
+    </ol>
+  </div>
+  <div class="card">
+    <h3 style="margin-top:0">在线资源</h3>
+    <ul>
+      <li><a href="https://en.wikipedia.org/wiki/Collatz_conjecture" target="_blank">Wikipedia · Collatz conjecture</a>（含 3x+1 问题的推广族系与文献）</li>
+      <li><a href="https://oeis.org/A006577" target="_blank">OEIS A006577</a> · 达到 1 所需步数</li>
+      <li><a href="https://oeis.org/A006885" target="_blank">OEIS A006885</a> · 轨迹最大值</li>
+      <li><a href="https://terrytao.wordpress.com/2019/09/10/almost-all-orbits-of-the-collatz-map-attain-almost-bounded-values/" target="_blank">Terence Tao 博客：Almost all orbits …</a></li>
+      <li><a href="https://www.youtube.com/results?search_query=collatz+3n%2B1" target="_blank">视频讲解</a>（3Blue1Brown 风格的解释、Numberphile 系列）</li>
+      <li><a href="https://www.020406.org/" target="_blank">020406.org</a> · 3x+1 计算数据集</li>
+    </ul>
+  </div>
+  <div class="card">
+    <h3 style="margin-top:0">本页实验小抄（可复制）</h3>
+    <pre class="mono" style="white-space:pre-wrap;font-size:13px">def hail(n):
+    steps, mx, parity = 0, n, ""
+    while n != 1:
+        if n % 2 == 0: n //= 2; parity += "0"
+        else:          n = 3*n + 1; parity += "1"
+        mx = max(mx, n); steps += 1
+    return steps, mx, parity</pre>
+  </div>
+</section>
+
+</main>
+
+<footer>冰雹猜想研究指南 · 纯静态页面（HTML + Canvas，无外部依赖，可离线打开）· 仅供学习与研究使用</footer>
+
+<script>
+/* ============ Tab 切换 ============ */
+const nav = document.getElementById('nav');
+nav.addEventListener('click', e => {
+  if (e.target.tagName !== 'BUTTON') return;
+  nav.querySelectorAll('button').forEach(b => b.classList.remove('on'));
+  e.target.classList.add('on');
+  document.querySelectorAll('main section').forEach(s => s.classList.remove('on'));
+  const t = e.target.dataset.t;
+  document.getElementById(t).classList.add('on');
+  window.scrollTo({top:0, behavior:'smooth'});
+  // 隐藏的 section 初始画布宽度为 0，切换显示后按真实宽度重绘
+  requestAnimationFrame(()=>requestAnimationFrame(()=>redrawSection(t)));
+});
+
+/* 按 section 重绘（需在 section 可见后调用） */
+function redrawSection(t){
+  try{
+    if(t==='intro') quickRun();
+    else if(t==='s1'){ s1reset(); s1Batch(); }
+    else if(t==='s2') drawTree();
+    else if(t==='s3') showParity();
+    else if(t==='s4') runRandom();
+    else if(t==='s5') drawHist();
+    else if(t==='s6'){ runVariant(); v6kScan(); }
+  }catch(err){ console.warn('redraw error:', t, err); }
+}
+
+/* ============ 工具 ============ */
+function traj(n, limit=1000000){
+  n = BigInt(n);
+  const orig = n; let steps=0, mx=n, seq=[Number(n)], par="";
+  let one = 1n;
+  while(n !== one && steps < limit){
+    if(n % 2n === 0n){ n = n/2n; par += "0"; }
+    else { n = 3n*n + 1n; par += "1"; }
+    if(n > mx) mx = n;
+    seq.push(Number(n > 1000000000000n ? 1000000000000n : n));
+    steps++;
+  }
+  return {seq, steps, max:Number(mx), parity:par, reached:n===one};
+}
+function fitCanvas(cv){
+  const dpr = window.devicePixelRatio || 1;
+  const w = cv.clientWidth || 800, h = parseInt(cv.getAttribute('height'));
+  cv.width = w*dpr; cv.height = h*dpr;
+  const ctx = cv.getContext('2d'); ctx.setTransform(dpr,0,0,dpr,0,0);
+  ctx.clearRect(0,0,w,h);
+  return {ctx, w, h};
+}
+function axes(ctx,w,h,pad,title){
+  ctx.strokeStyle='#30363d'; ctx.lineWidth=1;
+  ctx.beginPath(); ctx.moveTo(pad.l, pad.t); ctx.lineTo(pad.l, h-pad.b); ctx.lineTo(w-pad.r, h-pad.b); ctx.stroke();
+  if(title){ ctx.fillStyle='#9aa7b3'; ctx.font='13px sans-serif'; ctx.textAlign='left';
+    ctx.fillText(title, pad.l+4, pad.t-6); }
+}
+
+/* ============ 0 · 快速轨迹 ============ */
+function preset(v){ document.getElementById('q0n').value = v; quickRun(); }
+function quickRun(){
+  const n = parseInt(document.getElementById('q0n').value) || 27;
+  const r = traj(n);
+  document.getElementById('q0info').innerHTML =
+    `n = <span class="num">${n}</span> → 总步数 <span class="num">${r.steps}</span> · 峰值 <span class="num">${r.max.toLocaleString()}</span> · 峰值/起点 ≈ ${(r.max/n).toFixed(1)}×`;
+  drawLine(document.getElementById('q0'), r.seq, 'log');
+}
+function drawLine(cv, data, mode){
+  const {ctx,w,h} = fitCanvas(cv);
+  const pad={l:52,r:14,t:24,b:28};
+  axes(ctx,w,h,pad,`轨迹长度 ${data.length}`);
+  if(data.length<2) return;
+  const lg = data.map(v=>Math.log2(Math.max(v,1)));
+  let lo = Math.min(...lg), hi = Math.max(...lg);
+  if(hi-lo<1){hi=lo+1;}
+  const X = i => pad.l + i*(w-pad.l-pad.r)/(data.length-1);
+  const Y = v => { const t=(Math.log2(Math.max(v,1))-lo)/(hi-lo); return h-pad.b - t*(h-pad.t-pad.b); };
+  // axis labels
+  ctx.fillStyle='#9aa7b3'; ctx.font='11px Consolas'; ctx.textAlign='right';
+  for(let k=0;k<=4;k++){ const val=lo+(hi-lo)*k/4; ctx.fillText('2^'+val.toFixed(1), pad.l-6, Y(Math.pow(2,val))+4); }
+  // curve
+  ctx.beginPath(); ctx.strokeStyle='#58a6ff'; ctx.lineWidth=2;
+  data.forEach((v,i)=>{ i?ctx.lineTo(X(i),Y(v)):ctx.moveTo(X(i),Y(v)); }); ctx.stroke();
+  // points colored by parity
+  for(let i=1;i<data.length;i++){
+    ctx.fillStyle = (i%2===0)?'#3fb950':'#f7b955';
+    ctx.beginPath(); ctx.arc(X(i),Y(data[i]),2.6,0,7); ctx.fill();
+  }
+}
+quickRun();
+
+/* ============ 思路1 · 播放器 ============ */
+let s1 = {n:27, seq:[], i:0, timer:null};
+function s1reset(){
+  clearInterval(s1.timer);
+  const n = parseInt(document.getElementById('s1n').value)||27;
+  s1 = {n, seq:traj(n).seq, i:0, timer:null};
+  document.getElementById('s1stepInfo').textContent='第 0 步 / 共 '+(s1.seq.length-1);
+  drawLine(document.getElementById('s1c'), [s1.seq[0]]);
+}
+function s1advance(){
+  if(s1.i >= s1.seq.length-1){ clearInterval(s1.timer); return; }
+  s1.i++;
+  document.getElementById('s1stepInfo').textContent = `第 ${s1.i} 步 / 共 ${s1.seq.length-1} · 当前值 ${s1.seq[s1.i].toLocaleString()}`;
+  drawLine(document.getElementById('s1c'), s1.seq.slice(0, s1.i+1));
+}
+document.getElementById('s1step').onclick = ()=>{ if(s1.i < s1.seq.length-1) s1advance(); };
+document.getElementById('s1play').onclick = function(){
+  if(s1.timer){ clearInterval(s1.timer); s1.timer=null; this.textContent='▶ 播放'; return; }
+  s1.i = 0; this.textContent='⏸ 暂停';
+  s1.timer = setInterval(()=>{ s1advance(); if(s1.i>=s1.seq.length-1){clearInterval(s1.timer);s1.timer=null;document.getElementById('s1play').textContent='▶ 播放';} }, 60);
+};
+s1reset();
+
+function s1Batch(){
+  const N = Math.max(10, parseInt(document.getElementById('s1N').value)||2000);
+  const log = document.getElementById('s1log').checked;
+  const pts = [];
+  for(let n=1;n<=N;n++){
+    let x=n, steps=0;
+    while(x!==1 && steps<20000){ x = (x%2===0)? x/2 : 3*x+1; steps++; }
+    pts.push([n, steps]);
+  }
+  const {ctx,w,h} = fitCanvas(document.getElementById('s1b'));
+  const pad={l:52,r:14,t:24,b:30};
+  axes(ctx,w,h,pad,`n = 1 … ${N} 的总停止时间`);
+  const mx = Math.max(...pts.map(p=>p[1]))||1;
+  const Y = v => { const t = log? Math.log2(Math.max(v,1))/Math.log2(mx||2) : v/mx; return h-pad.b - t*(h-pad.t-pad.b); };
+  ctx.fillStyle='#9aa7b3'; ctx.font='11px Consolas'; ctx.textAlign='right';
+  for(let k=0;k<=4;k++){
+    const val = log? Math.pow(mx, k/4) : mx*k/4;
+    ctx.fillText(val.toFixed(log?0:0), pad.l-6, Y(val)+4);
+  }
+  ctx.fillStyle='#58a6ff';
+  pts.forEach(p=>{ ctx.globalAlpha=.6; ctx.fillRect(pad.l + (p[0]-1)/(N-1)*(w-pad.l-pad.r)-.5, Y(p[1])-1, 2, 2); });
+  ctx.globalAlpha=1;
+  const avg = (pts.reduce((a,p)=>a+p[1],0)/pts.length).toFixed(1);
+  document.getElementById('s1binfo').innerHTML =
+    `已扫描 ${N} 个数：平均步数 <span class="num">${avg}</span>，最大步数 <span class="num">${mx}</span>，峰值位置 n = ${pts.find(p=>p[1]===mx)[0]}`;
+}
+
+/* ============ 思路2 · 逆向树 ============ */
+function drawTree(){
+  const depth = Math.max(1, Math.min(14, parseInt(document.getElementById('s2d').value)||7));
+  const radial = document.getElementById('s2layout').value === 'radial';
+  // build tree
+  let nodes = [{v:1n, d:0, p:null}], frontier=[1n];
+  for(let d=0; d<depth; d++){
+    const nf=[];
+    for(const v of frontier){
+      const kids=[];
+      kids.push({v: v*2n, type:'x2'});
+      if((v-1n)%3n===0n){ const m=(v-1n)/3n;
+        if(m>0n && m%2n===1n && m%4n===1n ? true : (m%2n===1n)) kids.push({v:m, type:'div'}); }
+      for(const k of kids){ nodes.push({v:k.v, d:d+1, p:v, type:k.type}); nf.push(k.v); }
+    }
+    frontier=[...new Set(nf)];
+    if(nodes.length>1500) break;
+  }
+  const {ctx,w,h} = fitCanvas(document.getElementById('s2c'));
+  ctx.fillStyle='#9aa7b3'; ctx.font='12px sans-serif'; ctx.textAlign='left';
+  ctx.fillText(`节点数 ${nodes.length} · 深度 ${depth}`, 8, 14);
+  // positions
+  const maxD = Math.max(...nodes.map(n=>n.d))||1;
+  const byLevel = {};
+  nodes.forEach(n=>{ (byLevel[n.d] ||= []).push(n); });
+  const pos = {};
+  if(radial){
+    for(const d in byLevel){
+      const arr = byLevel[d], R = 40 + d*((Math.min(w,h)/2-50)/maxD);
+      arr.forEach((n,i)=>{ const a = -Math.PI/2 + (i+0.5)/arr.length*Math.PI*2;
+        pos[n.v+'_'+d] = [w/2 + R*Math.cos(a), h/2 + R*Math.sin(a)]; });
+    }
+  } else {
+    for(const d in byLevel){
+      const arr = byLevel[d];
+      arr.forEach((n,i)=>{ pos[n.v+'_'+d] = [padX(i,arr.length,w), 30 + d*((h-60)/maxD)]; });
+    }
+  }
+  function padX(i,len,W){ const m=30; return m + (len===1?(W/2-m): i*(W-2*m)/(len-1)); }
+  // edges
+  nodes.forEach(n=>{
+    if(n.p===null) return;
+    const a = pos[n.p+'_'+(n.d-1)], b = pos[n.v+'_'+n.d];
+    if(!a||!b) return;
+    ctx.beginPath();
+    if(n.type==='div'){ ctx.setLineDash([4,4]); ctx.strokeStyle='#f7b955'; }
+    else { ctx.setLineDash([]); ctx.strokeStyle='#2f6feb'; }
+    ctx.lineWidth=1.2;
+    ctx.moveTo(a[0],a[1]);
+    if(radial){ ctx.lineTo(b[0],b[1]); }
+    else { const my=(a[1]+b[1])/2; ctx.bezierCurveTo(a[0],my,b[0],my,b[0],b[1]); }
+    ctx.stroke();
+    ctx.setLineDash([]);
+  });
+  // nodes
+  nodes.forEach(n=>{
+    const p = pos[n.v+'_'+n.d]; if(!p) return;
+    const r = n.d===0? 9 : 5;
+    ctx.beginPath(); ctx.fillStyle = n.d===0? '#3fb950' : (n.type==='div'? '#f7b955':'#58a6ff');
+    ctx.arc(p[0],p[1],r,0,7); ctx.fill();
+    const label = n.v.toString();
+    if(label.length<=10 && (n.d<=2 || radial===false && nodes.length<300)){
+      ctx.fillStyle='#e6edf3'; ctx.font='10px Consolas'; ctx.textAlign='center';
+      ctx.fillText(label, p[0], p[1]-r-3);
+    }
+  });
+  document.getElementById('s2info').textContent = `共 ${nodes.length} 个节点`;
+}
+
+/* ============ 思路3 · 二进制 & 奇偶串 ============ */
+function showParity(){
+  const n = parseInt(document.getElementById('s3n').value)||27;
+  const r = traj(n);
+  const rows = r.seq.slice(0, 25).map((v,i)=>{
+    if(i===0) return `<tr><td>0</td><td class="mono">${v.toString(2).padStart(12,'0')}</td><td class="mono">${v}</td><td class="muted">起始</td></tr>`;
+    const prev = r.seq[i-1];
+    const op = prev%2===0 ? `${prev} ÷ 2` : `${prev}×3+1`;
+    return `<tr><td>${i}</td><td class="mono">${v.toString(2).padStart(12,'0')}</td><td class="mono">${v.toLocaleString()}</td><td class="muted">${op}</td></tr>`;
+  }).join('');
+  document.getElementById('s3out').innerHTML = `
+    <div class="bub">n = <span class="num">${n}</span> 的奇偶串（前 60 位）：<span class="parity">${r.parity.slice(0,60)}</span>
+      ${r.parity.length>60?' …':''}<br>串长 = 总步数 <span class="num">${r.steps}</span>，其中奇数位（1）共 <span class="num">${[...r.parity].filter(c=>c==='1').length}</span> 个。</div>
+    <table><tr><th>步</th><th>二进制</th><th>十进制</th><th>上一步操作</th></tr>${rows}</table>
+    ${r.steps>25?`<p class="muted">（仅显示前 25 步，共 ${r.steps} 步）</p>`:''}`;
+}
+
+/* ============ 思路4 · 随机模型 ============ */
+function runRandom(){
+  const K = Math.max(1, parseInt(document.getElementById('s4k').value)||40);
+  const S = Math.max(10, parseInt(document.getElementById('s4s').value)||120);
+  const showReal = document.getElementById('s4real').checked;
+  const {ctx,w,h} = fitCanvas(document.getElementById('s4c'));
+  const pad={l:52,r:14,t:24,b:30};
+  axes(ctx,w,h,pad,`随机奇偶模型 (${K} 条) vs 真实轨迹`);
+  // gather data
+  const sims = [];
+  for(let k=0;k<K;k++){
+    let lg = 0; const arr=[0];
+    for(let s=0;s<S;s++){ lg += (Math.random()<0.5)? -1 : Math.log2(1.5); arr.push(lg); }
+    sims.push(arr);
+  }
+  let real=null;
+  if(showReal){ const rr=traj(27); real = rr.seq.map(v=>Math.log2(Math.max(v,1)));
+    real = real.slice(0,S); }
+  const all = sims.flat().concat(real||[]);
+  let lo=Math.min(...all), hi=Math.max(...all);
+  const X = i => pad.l + i*(w-pad.l-pad.r)/(S);
+  const Y = v => h-pad.b - (v-lo)/(hi-lo||1)*(h-pad.t-pad.b);
+  ctx.lineWidth=1;
+  sims.forEach(arr=>{
+    ctx.globalAlpha=.4; ctx.beginPath(); ctx.strokeStyle='#58a6ff';
+    arr.forEach((v,i)=>{ i?ctx.lineTo(X(i),Y(v)):ctx.moveTo(X(i),Y(v)); });
+    ctx.stroke();
+  });
+  ctx.globalAlpha=1;
+  if(real){
+    ctx.beginPath(); ctx.strokeStyle='#f7b955'; ctx.lineWidth=2.4;
+    real.forEach((v,i)=>{ i?ctx.lineTo(X(i),Y(v)):ctx.moveTo(X(i),Y(v)); }); ctx.stroke();
+  }
+  // zero line
+  ctx.strokeStyle='#3fb950'; ctx.setLineDash([5,5]); ctx.beginPath();
+  ctx.moveTo(pad.l, Y(0)); ctx.lineTo(w-pad.r, Y(0)); ctx.stroke(); ctx.setLineDash([]);
+  ctx.fillStyle='#9aa7b3'; ctx.font='11px Consolas'; ctx.textAlign='right';
+  for(let k=0;k<=4;k++){ const v=lo+(hi-lo)*k/4; ctx.fillText(v.toFixed(1), pad.l-6, Y(v)+4); }
+  const endAvg = sims.reduce((a,arr)=>a+arr[arr.length-1],0)/K;
+  document.getElementById('s4info').innerHTML =
+    `绿虚线 = log₂ 起始水平。随机模型 ${S} 步后的平均 log₂ ≈ <span class="num">${endAvg.toFixed(2)}</span>
+     （理论期望 ≈ ${(-0.2075*S).toFixed(2)}）—— 多数向下，但个体可能向上冲，这就是"几乎必然"≠"必然"。`;
+}
+
+/* ============ 思路5 · 直方图 ============ */
+function drawHist(){
+  const N = Math.max(100, parseInt(document.getElementById('s5N').value)||3000);
+  const type = document.getElementById('s5type').value;
+  const vals=[];
+  for(let n=1;n<=N;n++){
+    let x=n, steps=0, mx=n, odd=0;
+    while(x!==1 && steps<20000){
+      if(x%2===0) x/=2; else {x=3*x+1; odd++;} steps++; if(x>mx)mx=x;
+    }
+    if(type==='peak') vals.push(mx/n);
+    else if(type==='steps') vals.push(steps);
+    else vals.push(odd/steps);
+  }
+  const nb = 40;
+  let lo=Math.min(...vals), hi=Math.max(...vals);
+  if(hi<=lo) hi=lo+1;
+  const bins=new Array(nb).fill(0);
+  vals.forEach(v=>{ let i=Math.floor((v-lo)/(hi-lo)*nb); if(i>=nb)i=nb-1; if(i<0)i=0; bins[i]++; });
+  const {ctx,w,h} = fitCanvas(document.getElementById('s5c'));
+  const pad={l:52,r:14,t:24,b:34};
+  axes(ctx,w,h,pad,`直方图 · N=${N} · ${type}`);
+  const mxb=Math.max(...bins)||1;
+  const bw=(w-pad.l-pad.r)/nb;
+  bins.forEach((c,i)=>{
+    const bh=c/mxb*(h-pad.t-pad.b);
+    ctx.fillStyle = type==='steps' ? '#58a6ff' : (type==='peak'?'#f7b955':'#3fb950');
+    ctx.globalAlpha=.85;
+    ctx.fillRect(pad.l+i*bw, h-pad.b-bh, bw-1, bh);
+    ctx.globalAlpha=1;
+  });
+  ctx.fillStyle='#9aa7b3'; ctx.font='11px Consolas'; ctx.textAlign='center';
+  for(let k=0;k<=4;k++){ const v=lo+(hi-lo)*k/4;
+    ctx.fillText(v.toFixed(type==='odd'?2:1), pad.l+(w-pad.l-pad.r)*k/4, h-pad.b+16); }
+  const mean = vals.reduce((a,b)=>a+b,0)/vals.length;
+  document.getElementById('s5info').innerHTML =
+    `均值 = <span class="num">${mean.toFixed(type==='odd'?3:1)}</span>，区间 [${lo.toFixed(type==='odd'?2:1)}, ${hi.toFixed(type==='odd'?2:1)}]。` +
+    (type==='peak'? ' 长右尾说明少数起点会暴涨——反例搜索重点盯防这类起点。' :
+     type==='steps'? ' 步数大体随 log n 增长，符合启发式预期。' : ' 奇数步占比集中在 0.31~0.36 附近，与随机模型 1/3 一致。');
+}
+
+/* ============ 思路6 · 变体 ============ */
+function variantStats(k, N, sign){
+  // T(n)= k*n + sign (sign=+1 or -1), positive integers; track growth
+  let sumLog=0, bad=0, cnt=0;
+  for(let n=2;n<=N;n++){
+    let x=n, steps=0, mx=n;
+    while(steps<3000 && x>0){
+      if(x%2===0) x = x/2;
+      else { x = k*x + sign; }
+      if(x>mx) mx=x;
+      steps++;
+      if(x<=1) break;
+      if(mx > 1e12){ break; }
+    }
+    if(mx>1e11 || steps>=3000) bad++;
+    sumLog += Math.log2(mx/n); cnt++;
+  }
+  return {avg: sumLog/cnt, bad, cnt};
+}
+function runVariant(){
+  const k = Math.max(1, parseInt(document.getElementById('v6k').value)||3);
+  const N = Math.max(10, parseInt(document.getElementById('v6N').value)||500);
+  const sign = document.getElementById('v6op').value==='mul'? 1 : -1;
+  const r = variantStats(k, N, sign);
+  const {ctx,w,h} = fitCanvas(document.getElementById('v6c'));
+  const pad={l:56,r:14,t:26,b:34};
+  const title = `T(n)=${k}n${sign>0?'+1':'−1'} · 起点 1…${N} 的 log₂(峰值/起点) 平均`;
+  axes(ctx,w,h,pad,title);
+  // histogram of avgLog per starting bucket
+  const buckets=20, bw=(w-pad.l-pad.r)/buckets;
+  const per=[];
+  for(let b=0;b<buckets;b++){
+    const a=Math.floor(N*b/buckets)+1, z=Math.floor(N*(b+1)/buckets);
+    per.push(variantStats(k, Math.max(a,z), sign).avg);
+  }
+  const lo=Math.min(0,...per), hi=Math.max(...per,1);
+  const Y=v=>h-pad.b-(v-lo)/(hi-lo||1)*(h-pad.t-pad.b);
+  per.forEach((v,i)=>{
+    const y0=Y(0), y=Y(v);
+    ctx.fillStyle = v>0 ? '#f85149' : '#3fb950'; ctx.globalAlpha=.85;
+    ctx.fillRect(pad.l+i*bw+2, Math.min(y0,y), bw-4, Math.abs(y-y0)||1);
+    ctx.globalAlpha=1;
+  });
+  ctx.strokeStyle='#30363d'; ctx.beginPath(); ctx.moveTo(pad.l,Y(0)); ctx.lineTo(w-pad.r,Y(0)); ctx.stroke();
+  ctx.fillStyle='#9aa7b3'; ctx.font='11px Consolas'; ctx.textAlign='right';
+  for(let q=0;q<=4;q++){ const v=lo+(hi-lo)*q/4; ctx.fillText(v.toFixed(1), pad.l-6, Y(v)+4); }
+  document.getElementById('v6info').innerHTML =
+    `平均 log₂ 峰值比 = <span class="num">${r.avg.toFixed(2)}</span>，「暴涨/超限」起点占比 <span class="num">${(100*r.bad/r.cnt).toFixed(1)}%</span> · ` +
+    (r.avg>1.5 ? '<span class="no">偏发散型</span>' : (r.avg>0.3? '<span class="muted">混合型</span>':'<span class="ok">收敛型</span>'));
+}
+function v6kScan(){
+  const sign = document.getElementById('v6op').value==='mul'? 1 : -1;
+  const KMAX=20, N=300;
+  const res=[];
+  for(let k=1;k<=KMAX;k++) res.push({k, ...variantStats(k,N,sign)});
+  const {ctx,w,h} = fitCanvas(document.getElementById('v6b'));
+  const pad={l:56,r:14,t:26,b:34};
+  axes(ctx,w,h,pad,`相图：k = 1…${KMAX}，T(n)=k·n${sign>0?'+1':'−1'}，统计 log₂(峰值/起点) 平均`);
+  const hi=Math.max(...res.map(r=>r.avg),1), lo=Math.min(0,...res.map(r=>r.avg));
+  const bw=(w-pad.l-pad.r)/KMAX;
+  const Y=v=>h-pad.b-(v-lo)/(hi-lo||1)*(h-pad.t-pad.b);
+  res.forEach((r,i)=>{
+    const y0=Y(0), y=Y(r.avg);
+    ctx.fillStyle = r.avg>1.2 ? '#f85149' : (r.avg>0.3? '#f7b955':'#3fb950');
+    ctx.globalAlpha=.85;
+    ctx.fillRect(pad.l+i*bw+2, Math.min(y0,y), bw-4, Math.abs(y-y0)||1.5);
+    ctx.globalAlpha=1;
+    ctx.fillStyle='#9aa7b3'; ctx.font='11px Consolas'; ctx.textAlign='center';
+    ctx.fillText('k='+r.k, pad.l+i*bw+bw/2, h-pad.b+16);
+  });
+  ctx.strokeStyle='#30363d'; ctx.beginPath(); ctx.moveTo(pad.l,Y(0)); ctx.lineTo(w-pad.r,Y(0)); ctx.stroke();
+  const red = res.filter(r=>r.avg>1.2).map(r=>'k='+r.k);
+  const grn = res.filter(r=>r.avg<=0.3).map(r=>'k='+r.k);
+  document.getElementById('v6kinfo').innerHTML =
+    `<span class="no">发散倾向: ${red.join(', ')||'—'}</span> ｜ <span class="ok">收敛: ${grn.join(', ')||'—'}</span>`;
+}
+
+/* ============ 初次绘制 ============ */
+window.addEventListener('load', ()=>{ drawTree(); showParity(); runRandom(); drawHist(); v6kScan(); });
+window.addEventListener('resize', ()=>{
+  quickRun(); s1reset(); drawTree();
+});
+</script>
+</body>
+</html>
+</parameter>
+<task_progress>
+- [x] 确认方案与文件位置
+- [x] 创建 HTML（引言 + 6 大研究思路 + 研究路线 + 参考文献）
+- [x] 实现交互：轨迹动画、批量散点图、逆向树、奇偶串、随机模型、变体相图
+- [ ] 浏览器验证功能与控制台无报错
+</task_progress>
+</write_to_file>
